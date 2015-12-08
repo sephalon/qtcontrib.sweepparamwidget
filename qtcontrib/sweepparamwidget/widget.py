@@ -5,6 +5,7 @@ from __future__ import (absolute_import, division,
 
 import sys
 import os
+import numbers
 import inspect
 import collections
 import importlib
@@ -17,6 +18,10 @@ from PyQt5 import uic
 
 filename = inspect.getfile(inspect.currentframe())
 path = os.path.dirname(os.path.abspath(filename))
+
+def convert_to_float(value):
+    if isinstance(value, numbers.Real):
+        int_step 
 
 ParameterForm, ParameterBase = uic.loadUiType(os.path.join(path,
     'widget.ui'))
@@ -32,7 +37,8 @@ class SweepParameterWidget(ParameterForm, ParameterBase):
     @specialValueText.setter
     def specialValueText(self, value):
         self._specialValueText = value
-        self.fixedSpinBox.setSpecialValueText(value)
+        if hasattr(self, 'fixedSpinBox'):
+            self.fixedSpinBox.setSpecialValueText(value)
 
     @QtCore.pyqtProperty(str)
     def suffix(self):
@@ -60,15 +66,19 @@ class SweepParameterWidget(ParameterForm, ParameterBase):
     def spinBox(self, value):
         self._spinBox = value
 
-        widget = getattr(self, 'fixedSpinBox', None)
-        if widget: widget.setParent(None)
-        if hasattr(self, 'fixedSpinBox'): del self.fixedSpinBox
+        if hasattr(self, 'fixedSpinBox'):
+            self.fixedSpinBox.setParent(None)
+            del self.fixedSpinBox
+
+        for index, label in enumerate(['Start', 'Stop', 'Step']):
+            if hasattr(self, 'sweep{}SpinBox'.format(label)):
+                widget = getattr(self, 'sweep{}SpinBox'.format(label))
+                widget.setParent(None)
+                del widget
 
         elems = value.split('.')
         module_path = elems[:-1]
-        print(module_path)
         widget_name = elems[-1]
-        print(widget_name)
 
         #if module_path:
         #    try:
@@ -85,19 +95,13 @@ class SweepParameterWidget(ParameterForm, ParameterBase):
         widget = None
         try:
             n = '.'.join(module_path)
-            print(sys.modules)
-            print('-2342304', n)
-            print('##################3', sys.modules[n])
             mod = sys.modules[n]
-            widget = getattr(mod, widget_name)()
-            print(dir(widget))
-        except TypeError as e:
+            Widget = getattr(mod, widget_name)
+            widget = Widget()
+        except KeyError as e:
             print(e)
             return
         except AttributeError as e:
-            print(e)
-            return
-        except Exception as e:
             print(e)
             return
 
@@ -105,40 +109,29 @@ class SweepParameterWidget(ParameterForm, ParameterBase):
         widget.setObjectName('fixedSpinBox')
         widget.valueChanged.connect(self.fixedHorizontalSlider.setValue)
         self.fixedHorizontalSlider.valueChanged.connect(widget.setValue)
-        getattr(self, 'fixedPageGridLayout').addWidget(widget, 0, 1)
+        self.fixedPageGridLayout.addWidget(widget, 0, 1)
+        self.specialValueText = self._specialValueText
 
         layout = getattr(self, 'sweepPageFormLayout')
         for index, label in enumerate(['Start', 'Stop', 'Step']):
-            #widget = getattr(self, 'sweep{}SpinBox', None)
-            #if widget: widget.setParent(None)
-            layout.itemAt(index, QtWidgets.QFormLayout.FieldRole).widget().setParent(None)
-            widget = None
-            Widget = getattr(QtWidgets, value, None)
+            #layout.itemAt(index, QtWidgets.QFormLayout.FieldRole).widget().setParent(None)
+            #widget = None
             if Widget:
                 widget = Widget()
-            #widget.setObjectName('sweep{}SpinBox'.format(label))
+            widget.setObjectName('sweep{}SpinBox'.format(label))
             layout.setWidget(index, QtWidgets.QFormLayout.FieldRole, widget)
             setattr(self, 'sweep{}SpinBox'.format(label), widget)
-            #getattr(self, 'sweepPageFormLayout').addRow(elem, widget)
+            #self.sweepPageFormLayout.addRow(label, widget)
         self._set_suffix()
+
 
     def __init__(self, parent=None):
         super(SweepParameterWidget, self).__init__(parent)
 
         self.setupUi(self)
-        #self.centralLayout = QtWidgets.QGridLayout()
-        #self.setLayout(self.centralLayout)
-        #self.fixedRadioButton = QtWidgets.QRadioButton('Fixed')
-        #self.centralLayout.addWidget(self.fixedRadioButton)
-        #self.sweepRadioButton = QtWidgets.QRadioButton('Sweep')
-        #self.centralLayout.addWidget(self.sweepRadioButton)
-        #self.stackedWidget = QtWidgets.QStackedWidget()
-        #self.spinBox = 'QSpinBox'
-        #self.fixedSpinBox = getattr(QtWidgets, self.spinBox)()
-        #self.centralLayout.addWidget(self.fixedSpinBox)
-        self.spinBox = 'QSpinBox'
         self.suffix = ''
-        self._specialValueText = ''
+        self.specialValueText = ''
+        self.spinBox = 'PyQt5.QtWidgets.QSpinBox'
 
     @QtCore.pyqtSlot()
     def on_fixedRadioButton_released(self):
@@ -190,10 +183,24 @@ class SweepParameterWidget(ParameterForm, ParameterBase):
             self.fixedRadioButton.setChecked(True)
 
     def setRange(self, start, stop, step):
+        #if isinstance(step, numbers.Real):
+        #    int_step = 1 / step
+        #    self.fixedHorizontalSlider.setMaximum(stop * int_step)
+        #    self.fixedHorizontalSlider.setMinimum(start * int_step)
+        #    self.fixedHorizontalSlider.setSingleStep(int_step)
+        #    #self.fixedSpinBox.valueChanged.connect(lambda x:
+        #    #        self.fixedHorizontalSlider.setValue(x * 100))
+        #    self.fixedHorizontalSlider.valueChanged.connect(lambda x:
+        #            self.fixedSpinBox.setValue(x / 100))
+        #    self.fixedHorizontalSlider.setValue(self.fixedHorizontalSlider.value()
+        #            * int_step)
+        #else:
         self.fixedHorizontalSlider.setMinimum(start)
-        self.fixedSpinBox.setMinimum(start)
         self.fixedHorizontalSlider.setMaximum(stop)
+        self.fixedHorizontalSlider.setSingleStep(step)
+        self.fixedSpinBox.setMinimum(start)
         self.fixedSpinBox.setMaximum(stop)
+        self.fixedSpinBox.setSingleStep(step)
 
         self.sweepStartSpinBox.setMinimum(start)
         self.sweepStartSpinBox.setMaximum(stop)

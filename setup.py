@@ -9,5 +9,7 @@ setup(name='qtcontrib.sweepparamwidget',
       license='MIT',
       namespace_packages=['qtcontrib'],
       packages=find_packages(),
-      include_package_data=True,
+      package_data = {
+	'': ['*.ui']
+      },
       zip_safe=False)

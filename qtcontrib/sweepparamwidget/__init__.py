@@ -1,1 +1,1 @@
-import qtcontrib.sweepparamwidget.widget
+from qtcontrib.sweepparamwidget.widget import SweepParameterWidget
